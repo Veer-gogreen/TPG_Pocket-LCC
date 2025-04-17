@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POCKET LCC</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
+        label { font-weight: bold; display: block; margin: 15px 0 5px; }
+        select, button, input { width: 100%; padding: 10px; margin-top: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background-color: #28a745; color: white; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .hidden { display: none; }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            white-space: nowrap;
+            display: none;
+        }
+
+        table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+            background: #ffffff;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        tr:hover { background-color: #f1c40f; color: white; transition: 0.3s; }
+
+         .back-button {
+            margin: 20px 0;
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+
+        #searchInput {
+            width: 50%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .back-button { background-color: #dc3545; }
+        .back-button:hover { background-color: #c82333; }
+        .save-button { background-color: #007bff; }
+        .save-button:hover { background-color: #0056b3; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Password Protection -->
+    <div id="loginContainer" class="container">
+        <h1>POCKET LCC</h1>
+        <h2>Enter Password</h2>
+        <label for="password">Password:</label>
+        <input type="password" id="password" placeholder="Enter Password">
+        <button onclick="checkPassword()">Login</button>
+        <p id="errorMessage" style="color: red; display: none;">Incorrect password, try again.</p>
+    </div>
+
+    <!-- Main Content (Initially Hidden) -->
+    <div id="mainContent" class="hidden">
+        <div id="formContainer" class="container">
+            <h2>TPG POCKET LCC</h2>
+            <p>Updated Portfolio Details On 17.04.2025</p>
+            <p>Helmet keeps away your hell mate Wear helmets, ride safely!</p>
+
+            <label for="sheet">Select Portfolio:</label>
+            <select id="sheet" required>
+                <option value="">Loading Sheets...</option>
+            </select>
+
+            <label for="unit">Unit:</label>
+            <select id="unit" required>
+                <option value="">Select Unit First</option>
+            </select>
+
+            <label for="reName">RE Name:</label>
+            <select id="reName">
+                <option value="">(Optional) Select RE Name</option>
+            </select>
+
+            <button onclick="fetchFilteredData()">Search</button>
+        </div>
+
+        <div id="tableContainer" class="table-container">
+            <h2>Portfolio Details</h2>
+
+        <!-- Search Input for Filtering -->
+        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Search for RE Name, Vehicle Reg No, Cust Name, Agreement No...">
+
+            <table id="dataTable">
+                <thead id="tableHeader"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <button class="back-button" onclick="showForm()">Go Back</button>
+            <button class="save-button" onclick="saveTableData()">Save to Google Sheet</button>
+        </div>
+    </div>
+
+    <script>
+        const scriptURL = "https://script.google.com/macros/s/AKfycbyBdHzcXAeFqVfV3y6ur4ONDXTYtOuiusGne6876cIyqzy0GW_vcvJ2tz39JPHccA/exec"; // Replace with your actual Google Apps Script URL
+        const correctPassword = "BMREG123*"; 
+
+        function checkPassword() {
+            const inputPassword = document.getElementById("password").value;
+            if (inputPassword === correctPassword) {
+                document.getElementById("loginContainer").style.display = "none";
+                document.getElementById("mainContent").style.display = "block";
+                fetchSheets();
+            } else {
+                document.getElementById("errorMessage").style.display = "block";
+            }
+        }
+
+        async function fetchSheets() {
+            const response = await fetch(`${scriptURL}?action=getSheets`);
+            const sheets = await response.json();
+            const sheetDropdown = document.getElementById("sheet");
+            sheetDropdown.innerHTML = `<option value="">Select Sheet</option>`;
+
+            sheets.forEach(sheet => {
+                let option = document.createElement("option");
+                option.value = sheet;
+                option.textContent = sheet;
+                sheetDropdown.appendChild(option);
+            });
+
+            sheetDropdown.addEventListener("change", fetchDropdownData);
+        }
+
+        async function fetchDropdownData() {
+            const sheet = document.getElementById("sheet").value;
+            if (!sheet) return;
+
+            const response = await fetch(`${scriptURL}?action=getDropdownData&sheet=${encodeURIComponent(sheet)}`);
+            const data = await response.json();
+
+            const unitDropdown = document.getElementById("unit");
+            unitDropdown.innerHTML = `<option value="">Select Unit</option>`;
+            document.getElementById("reName").innerHTML = `<option value="">(Optional) Select RE Name</option>`;
+
+            Object.keys(data).forEach(unit => {
+                let option = document.createElement("option");
+                option.value = unit;
+                option.textContent = unit;
+                unitDropdown.appendChild(option);
+            });
+	    
+		unitDropdown.addEventListener("change", function () {
+                const reDropdown = document.getElementById("reName");
+                reDropdown.innerHTML = `<option value="">(Optional) Select RE Name</option>`;
+                const selectedUnit = this.value;
+                if (data[selectedUnit]) {
+                    data[selectedUnit].forEach(re => {
+                        let option = document.createElement("option");
+                        option.value = re;
+                        option.textContent = re;
+                        reDropdown.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        async function fetchFilteredData() {
+            const sheet = document.getElementById("sheet").value;
+            const unit = document.getElementById("unit").value;
+	    const reName = document.getElementById("reName").value;
+
+            if (!sheet || !unit) return alert("Please select Portfolio and Unit!");
+
+            let url = `${scriptURL}?action=getFilteredData&sheet=${encodeURIComponent(sheet)}&unit=${encodeURIComponent(unit)}`;
+            if (reName) {
+                url += `&reName=${encodeURIComponent(reName)}`;
+            }
+
+
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (!result.data.length) {
+                alert("No data found!");
+                return;
+            }
+
+            document.getElementById("tableHeader").innerHTML = `<tr><th>Select</th>${result.headers.map(h => `<th>${h}</th>`).join("")}</tr>`;
+            document.getElementById("tableBody").innerHTML = result.data.map(row => 
+                `<tr><td><input type="checkbox"></td>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`
+            ).join("");
+
+            document.getElementById("formContainer").style.display = "none";
+            document.getElementById("tableContainer").style.display = "block";
+            document.querySelector(".back-button").style.display = "block";
+            document.querySelector(".save-button").style.display = "block";
+        }
+
+        async function saveTableData() {
+            const selectedRows = [...document.querySelectorAll("#dataTable tbody tr")]
+                .filter(row => row.querySelector("input").checked)
+                .map(row => [...row.children].slice(1).map(cell => cell.textContent));
+
+            if (!selectedRows.length) return alert("No rows selected!");
+
+            await fetch(`${scriptURL}?action=saveData`, { method: "POST", body: JSON.stringify({ data: selectedRows }) });
+            alert("Selected data saved successfully!");
+        }
+
+	function showForm() {
+            document.getElementById("formContainer").style.display = "block";
+            document.getElementById("tableContainer").style.display = "none";
+            document.querySelector(".back-button").style.display = "none";
+        }
+
+	function filterTable() {
+    let input = document.getElementById("searchInput").value.toLowerCase();
+    let rows = document.querySelectorAll("#tableContainer tbody tr"); // Target only tbody rows
+    let noResults = document.getElementById("noResults");
+    let found = false;
+
+    rows.forEach(row => {
+        let text = row.textContent.toLowerCase();
+        if (text.includes(input)) {
+            row.style.display = "";
+            found = true;
+        } else {
+            row.style.display = "none";
+        }
+    });
+
+    // Show "No Results" row if no matches are found
+    noResults.style.display = found ? "none" : "table-row";
+}
+    </script>
+
+</body>
+</html>
